@@ -52,6 +52,7 @@ class AioPikaBroker(AsyncBroker):
         exchange_type: ExchangeType = ExchangeType.TOPIC,
         max_priority: Optional[int] = None,
         delayed_message_exchange_plugin: bool = False,
+        queue_durable: bool = False,
         **connection_kwargs: Any,
     ) -> None:
         """
@@ -80,6 +81,7 @@ class AioPikaBroker(AsyncBroker):
         :param max_priority: maximum priority value for messages.
         :param delayed_message_exchange_plugin: turn on or disable
             delayed-message-exchange rabbitmq plugin.
+        :param queue_durable: setting queue durable when queue declared
         :param connection_kwargs: additional keyword arguments,
             for connect_robust method of aio-pika.
         """
@@ -97,6 +99,7 @@ class AioPikaBroker(AsyncBroker):
         self._routing_key = routing_key
         self._max_priority = max_priority
         self._delayed_message_exchange_plugin = delayed_message_exchange_plugin
+        self._queue_durable = queue_durable
 
         self._dead_letter_queue_name = f"{queue_name}.dead_letter"
         if dead_letter_queue_name:
@@ -178,6 +181,7 @@ class AioPikaBroker(AsyncBroker):
         """
         await channel.declare_queue(
             self._dead_letter_queue_name,
+            durable=self._queue_durable,
         )
         args: "Dict[str, Any]" = {
             "x-dead-letter-exchange": "",
@@ -188,6 +192,7 @@ class AioPikaBroker(AsyncBroker):
         queue = await channel.declare_queue(
             self._queue_name,
             arguments=args,
+            durable=self._queue_durable,
         )
         if self._delayed_message_exchange_plugin:
             await queue.bind(
@@ -201,6 +206,7 @@ class AioPikaBroker(AsyncBroker):
                     "x-dead-letter-exchange": "",
                     "x-dead-letter-routing-key": self._queue_name,
                 },
+                durable=self._queue_durable,
             )
 
         await queue.bind(
